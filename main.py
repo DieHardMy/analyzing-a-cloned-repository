@@ -45,14 +45,20 @@ def traverse_repo_iteratively(repo_path, ignore_file):
     while dirs_to_visit:
         current_path, relative_path = dirs_to_visit.pop()
         dirs_visited.add(relative_path)
-        for entry in tqdm(os.listdir(current_path), desc=f"Обработка {relative_path}", leave=False):
+        try:
+            entries = os.listdir(current_path)
+        except PermissionError:
+            logging.warning("Ошибка доступа к директории: %s", current_path)
+            continue
+
+        for entry in tqdm(entries, desc=f"Обработка {relative_path}", leave=False):
             entry_path = os.path.join(current_path, entry)
             entry_relative_path = os.path.join(relative_path, entry)
             if entry_relative_path in ignored_paths:
                 continue  # Пропустить игнорируемые файлы/папки
             if os.path.isdir(entry_path):
                 if entry_relative_path not in dirs_visited:
-                    yield entry_relative_path + "/"  # Возвращаем путь к папке
+                    yield entry_relative_path  # Возвращаем путь к директории без закрывающего слэша
                     dirs_to_visit.append((entry_path, entry_relative_path))
             else:
                 yield entry_relative_path  # Возвращаем путь к файлу
@@ -77,13 +83,27 @@ def get_file_contents_iteratively(repo_path, ignore_file):
         ".img",  # Образ диска
         ".iso",  # Образ оптического диска
         ".pdf",  # Портативный формат документа
-        ".jpg",  # Изображение в формате JPEG
-        ".png",  # Изображение в формате PNG
-        ".gif",  # Изображение в формате GIF
-        ".tif",  # Изображение в формате TIFF
-        ".bmp",  # Изображение в формате BMP
+
         ".avi",  # Видеофайл в формате AVI
         ".mp4",  # Видеофайл в формате MP4
+        ".mov",  # Видеофайл в формате MOV
+        ".mkv",  # Видеофайл в формате MKV
+        ".wmv",  # Видеофайл в формате WMV
+        ".flv",  # Видеофайл в формате FLV
+        ".mpeg",  # Видеофайл в формате MPEG
+        ".mpg",  # Видеофайл в формате MPG
+        ".m4v",  # Видеофайл в формате M4V
+        ".3gp",  # Видеофайл в формате 3GP
+        ".webm",  # Видеофайл в формате WebM
+        ".ts",  # Видеофайл в формате TS
+        ".mts",  # Видеофайл в формате MTS
+        ".m2ts",  # Видеофайл в формате M2TS
+        ".vob",  # Видеофайл в формате VOB
+        ".ogg",  # Видеофайл в формате OGG
+        ".ogv",  # Видеофайл в формате OGV
+        ".divx",  # Видеофайл в формате DivX
+        ".xvid",  # Видеофайл в формате Xvid
+
         ".mp3",  # Аудиофайл в формате MP3
         ".wav",  # Аудиофайл в формате WAV
         ".zip",  # Архив ZIP
@@ -91,19 +111,60 @@ def get_file_contents_iteratively(repo_path, ignore_file):
         ".tar",  # Архив TAR
         ".gz",  # Архив GZIP
         ".7z",  # Архив 7-Zip
+
+        ".jpg",  # Изображение в формате JPEG
+        ".jpeg",  # Изображение в формате JPEG
+        ".jpe",  # Изображение в формате JPEG
+        ".jif",  # Изображение в формате JPEG
+        ".jfif",  # Изображение в формате JPEG
+        ".jfi",  # Изображение в формате JPEG
+        ".png",  # Изображение в формате PNG
+        ".gif",  # Изображение в формате GIF
+        ".bmp",  # Изображение в формате BMP
+        ".dib",  # Изображение в формате BMP
+        ".tif",  # Изображение в формате TIFF
+        ".tiff",  # Изображение в формате TIFF
+        ".webp",  # Изображение в формате WebP
+        ".svg",  # Векторное изображение в формате SVG
+        ".svgz",  # Векторное изображение в формате SVG (сжатый)
+        ".ico",  # Иконка в формате ICO
+        ".jxr",  # Изображение в формате JPEG XR
+        ".wdp",  # Изображение в формате JPEG XR
+        ".hdp",  # Изображение в формате JPEG XR
+        ".jp2",  # Изображение в формате JPEG 2000
+        ".j2k",  # Изображение в формате JPEG 2000
+        ".jpf",  # Изображение в формате JPEG 2000
+        ".jpx",  # Изображение в формате JPEG 2000
+        ".jpm",  # Изображение в формате JPEG 2000
+        ".mj2",  # Изображение в формате JPEG 2000
+
+        ".otf",  # Открытый тип шрифта
+        ".ttf",  # TrueType шрифт
+        ".woff",  # Веб-шрифт формата WOFF (Web Open Font Format)
+        ".woff2",  # Веб-шрифт формата WOFF 2.0 (Web Open Font Format 2.0)
+        ".eot",  # Файл встраиваемого шрифта формата EOT (Embedded OpenType)
+        ".pfa",  # Компактный файл шрифта формата PFA (PostScript Font ASCII)
+        ".pfb",  # Компактный файл шрифта формата PFB (PostScript Font Binary)
+        ".otc",  # Компактный файл шрифта формата OTC (OpenType Compact Font)
+        ".ttc",  # Компактный файл шрифта формата TTC (TrueType Collection)
+        ".dfont",  # Файл шрифта Macintosh формата Dfont
+
         # Добавьте другие расширения, если необходимо
     ]
 
     for file_path in traverse_repo_iteratively(repo_path, ignore_file):
-        if any(file_path.endswith(ext) for ext in binary_extensions):
+        extension = os.path.splitext(file_path)[1]  # Extract file extension
+        if extension in binary_extensions:
             logging.debug("Пропуск бинарного файла: %s", file_path)
         else:
-            try:
-                with open(os.path.join(repo_path, file_path), "r", encoding="utf-8") as f:
-                    file_content = f.read()
-                    yield file_path, file_content
-            except Exception as e:
-                logging.warning("Ошибка при чтении файла '%s': %s", file_path, e)
+            # Проверяем, является ли файлом перед открытием
+            if os.path.isfile(os.path.join(repo_path, file_path)):
+                try:
+                    with open(os.path.join(repo_path, file_path), "r", encoding="utf-8") as f:
+                        file_content = f.read()
+                        yield file_path, file_content
+                except Exception as e:
+                    logging.warning("Ошибка при чтении файла '%s': %s", file_path, e)
 
 
 def analyze_repo(repo_path, ignore_file="ignore.txt"):
